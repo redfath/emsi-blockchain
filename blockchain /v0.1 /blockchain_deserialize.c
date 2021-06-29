@@ -1,91 +1,84 @@
 # inclure  " blockchain.h " 
 
+# définit  CLEAN_UP (free(chain), close(fd)) 
+# définit  CLEAN_UP_BLOCKS (free(block), llist_destroy(list, 1 , NULL )) 
+# définit  CHECK_ENDIAN ( x ) (endianness ? SWAPENDIAN(x) : ( void ) 0 ) 
 /* * 
-* swap_endianness - échanger l'endianness d'un bloc 
-* @block : un bloc blockchain 
-*/ 
-
-void  swap_endianness ( block_t *block) 
-{ 
-	_swap_endian block- (& > info . index , sizeof (block-> info . index )); 
-	_swap_endian bloc- (& > info . difficulté , sizeof (bloc-> info . difficulté )); 
-	_swap_endian block- (& > info . timestamp , sizeof (block-> info . timestamp )); 
-	_swap_endian block- (& > info . nonce , sizeof (block-> info . nonce )); 
-} 
-
-/* * 
-* load_blocks - lit les blocs d'un fichier 
-* @fp : pointeur de fichier 
-* @swap_endian : un drapeau pour échanger le boutisme 
-* @blockchain : blockchain 
-* @size : nombre de blocs à lire 
-* Retour : 0 en cas de succès, -1 en cas d'échec 
-*/ 
-
-int  load_blocks (FILE *fp, uint8_t swap_endian, 
-				blockchain_t *blockchain, int taille ) 
-{ 
-	block_t *bloc; 
-	uint32_t  data_len; 
-	long  int genesis_size; 
-	int je; 
-
-genesis_size = sizeof (block-> info ) + sizeof (block-> hash ) + 20L ; 
-	fseek (fp, genesis_size, SEEK_CUR); 
-	pour (i = 0 ; i < taille - 1 ; ++i) 
-	{ 
-block = malloc ( sizeof (*block)); 
-		si (!bloc) 
-			retour (- 1 ); 
-		fread (&block-> info , sizeof (block-> info ), 1 , fp); 
-		fread (&data_len, sizeof (data_len), 1 , fp); 
-		si (swap_endian) 
-			_swap_endian (&data_len, sizeof (data_len)); 
-		fread (&block-> data . buffer , data_len, 1 , fp); 
-		fread (&block-> hash , SHA256_DIGEST_LENGTH, 1 , fp); 
-		si (swap_endian) 
-			swap_endianness (bloc); 
-bloc-> données . len = data_len; 
-*(block-> data . buffer + data_len) = ' \0 ' ; 
-		llist_add_node (blockchain-> chaîne , bloc, ADD_NODE_REAR); 
-	} 
-	retour ( 0 ); 
-} 
-
-/* * 
-* blockchain_deserialize - charger la blockchain 
-* @path : fichier à lire 
-* Retour : blockchain chargée, NULL en cas d'échec 
-*/ 
-
+* blockchain_deserialize - désérialise la blockchain à partir d'un fichier 
+* @path : chemin d'accès au fichier blockchain sérialisé 
+* Retour : pointeur vers blockchain désérialisé ou null 
+ */ 
 blockchain_t * blockchain_deserialize ( char  const * chemin) 
 { 
-	header_t en- tête ; 
-	blockchain_t * blockchain; 
-	entière taille  ; 
-	uint8_t swap_endian; 
-FICHIER *fp = NULL ; 
-	
+	int fd; 
+	blockchain_t  *chain =  NULL ; 
+	uint8_t  endianness; 
+	char buf[ 4096 ] = { 0 }; 
+	uint32_t taille  ; 
+
 	si (!chemin) 
 		return ( NULL ); 
-	if ( accès (chemin, R_OK) == - 1 ) 
+fd = ouvert (chemin, O_RDONLY); 
+	si (fd == - 1 ) 
 		return ( NULL ); 
-fp = fopen (chemin, " r " ); 
-	si (!fp) 
+	if ( read (fd, buf, strlen (HBLK_MAGIC)) != strlen (HBLK_MAGIC) || 
+		strcmp (buf, HBLK_MAGIC)) 
+		return (CLEAN_UP, NULL ); 
+buf[ strlen (HBLK_VERSION)] = 0 ; 
+	if ( read (fd, buf, strlen (HBLK_VERSION)) != strlen (HBLK_VERSION) || 
+		strcmp (buf, HBLK_VERSION)) 
+		return (CLEAN_UP, NULL ); 
+chaine = calloc ( 1 , sizeof (*chain)); 
+	si (!chaîne) 
+		return (CLEAN_UP, NULL ); 
+	if ( read (fd, &endianness, 1 ) != 1 ) 
+		return (CLEAN_UP, NULL ); 
+endianness = endianness != _get_endianness (); 
+	if ( read (fd, &size, 4 ) != 4 ) 
+		return (CLEAN_UP, NULL ); 
+	CHECK_ENDIAN (taille); 
+chain-> chain = deserialize_blocks (fd, size, endianness); 
+	si (!chaîne) 
+		return (CLEAN_UP, NULL ); 
+	return ( close (fd), chaine); 
+} 
+
+/* * 
+* deserialize_blocks - désérialise tous les blocs du fichier 
+* @fd : ​​ouvrir fd pour enregistrer le fichier 
+* @size : nombre de blocs dans le fichier 
+* @endianness : si endianess a besoin de changer 
+* Retour : pointeur vers la liste des blocs ou NULL 
+ */ 
+llist_t * deserialize_blocks ( int fd, uint32_t taille, uint8_t endianness) 
+{ 
+	block_t *bloc; 
+	llist_t *list = llist_create (MT_SUPPORT_TRUE); 
+	uint32_t  i =  0 ; 
+
+	si (!liste) 
 		return ( NULL ); 
-	fread (&header, sizeof (en-tête), 1 , fp); 
-	if ( memcmp (header. hblk_magic , " HBLK " , 4 ) || 
-		memcmp (en-tête. hblk_version , " 0.1 " , 3 )) 
-		return ( fclose (fp), NULL ); 
-blockchain = blockchain_create (); 
-	si (!blockchain) 
-		return ( fclose (fp), NULL ); 
-swap_endian = _get_endianness () != en-tête. hblk_endian ; 
-taille = en-tête. hblk_blocks ; 
-	si (swap_endian) 
-		_swap_endian (&size, sizeof (taille)); 
-	if ( load_blocks (fp, swap_endian, blockchain, size) == - 1 ) 
-		return ( blockchain_destroy (blockchain), fclose (fp), NULL ); 
-	ffermer (fp); 
-	retour (blockchain); 
+	pour (i = 0 ; i < taille ; i++) 
+	{ 
+block = calloc ( 1 , sizeof (*block)); 
+		si (!bloc) 
+			return (CLEAN_UP_BLOCKS, NULL ); 
+		if ( read (fd, &(block-> info ), sizeof (block-> info )) != sizeof (block-> info )) 
+			return (CLEAN_UP_BLOCKS, NULL ); 
+		CHECK_ENDIAN bloc- ( > info . index ); 
+		CHECK_ENDIAN bloc- ( > info . difficulté ); 
+		CHECK_ENDIAN bloc- ( > info . timestamp ); 
+		CHECK_ENDIAN bloc- ( > info . nonce ); 
+		si ( lire (fd, & ( séquencés> données . len ), 4 )! = 4 ) 
+			return (CLEAN_UP_BLOCKS, NULL ); 
+		CHECK_ENDIAN bloc- ( > données . len ); 
+		if ( read (fd, block-> data . buffer , block-> data . len ) != block-> data . len ) 
+			return (CLEAN_UP_BLOCKS, NULL ); 
+		if ( read (fd, block-> hash , SHA256_DIGEST_LENGTH) != 
+SHA256_DIGEST_LENGTH) 
+			return (CLEAN_UP_BLOCKS, NULL ); 
+		if ( llist_add_node (liste, bloc, ADD_NODE_REAR)) 
+			return (CLEAN_UP_BLOCKS, NULL ); 
+	} 
+	retour (liste); 
 } 
