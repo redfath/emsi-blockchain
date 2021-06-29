@@ -44,7 +44,8 @@ blockchain_t *blockchain_deserialize(char const *path)
 }
 
 /**
- * deserialize_blocks - deserializes all the blocks in the file
+ * deserialize_blocks - deserialize_blocks deserializes all the blocks
+ *	in the file
  * @fd: open fd to save file
  * @size: number of blocks in the file
  * @endianness: if endianess needs switching
@@ -81,3 +82,4 @@ llist_t *deserialize_blocks(int fd, uint32_t size, uint8_t endianness)
 			return (CLEAN_UP_BLOCKS, NULL);
 	}
 	return (list);
+}
