@@ -91,4 +91,4 @@ llist_t *deserialize_blocks(int fd, uint32_t size, uint8_t endianness)
 			return (CLEAN_UP_BLOCKS, NULL);
 	}
 	return (list);
-
+}
